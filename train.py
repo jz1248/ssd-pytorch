@@ -29,8 +29,8 @@ if __name__ == "__main__":
     #   先大学习率
     #   后小学习率
     # ------------------------------------#
-    lr = 1e-4
-    freeze_lr = 1e-5
+    lr = 5e-4
+    freeze_lr = 1e-4
     Cuda = True
 
     Start_iter = 0
@@ -101,7 +101,7 @@ if __name__ == "__main__":
 
         optimizer = optim.Adam(net.parameters(), lr=lr)
         for epoch in range(Start_iter,Freeze_epoch):
-            if epoch%10==0:
+            if epoch%2==0:
                 adjust_learning_rate(optimizer,lr,0.9,epoch)
             loc_loss = 0
             conf_loss = 0
@@ -146,7 +146,7 @@ if __name__ == "__main__":
 
         optimizer = optim.Adam(net.parameters(), lr=freeze_lr)
         for epoch in range(Freeze_epoch,Epoch):
-            if epoch%10==0:
+            if epoch%2==0:
                 adjust_learning_rate(optimizer,freeze_lr,0.9,epoch)
             loc_loss = 0
             conf_loss = 0

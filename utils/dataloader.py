@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import math
+import cv2
 import torch.nn.functional as F
 from PIL import Image
 from torch.autograd import Variable
@@ -35,7 +36,7 @@ class SSDDataset(Dataset):
 
         # 调整图片大小
         new_ar = w / h * self.rand(1 - jitter, 1 + jitter) / self.rand(1 - jitter, 1 + jitter)
-        scale = self.rand(.25, 2)
+        scale = self.rand(.5, 1.5)
         if new_ar < 1:
             nh = int(scale * h)
             nw = int(nh * new_ar)
@@ -61,15 +62,16 @@ class SSDDataset(Dataset):
         hue = self.rand(-hue, hue)
         sat = self.rand(1, sat) if self.rand() < .5 else 1 / self.rand(1, sat)
         val = self.rand(1, val) if self.rand() < .5 else 1 / self.rand(1, val)
-        x = rgb_to_hsv(np.array(image) / 255.)
-        x[..., 0] += hue
-        x[..., 0][x[..., 0] > 1] -= 1
-        x[..., 0][x[..., 0] < 0] += 1
+        x = cv2.cvtColor(np.array(image,np.float32)/255, cv2.COLOR_RGB2HSV)
+        x[..., 0] += hue*360
+        x[..., 0][x[..., 0]>1] -= 1
+        x[..., 0][x[..., 0]<0] += 1
         x[..., 1] *= sat
         x[..., 2] *= val
-        x[x > 1] = 1
-        x[x < 0] = 0
-        image_data = hsv_to_rgb(x) * 255  # numpy array, 0 to 1
+        x[x[:,:, 0]>360, 0] = 360
+        x[:, :, 1:][x[:, :, 1:]>1] = 1
+        x[x<0] = 0
+        image_data = cv2.cvtColor(x, cv2.COLOR_HSV2RGB)*255
 
         # 调整目标框坐标
         box_data = np.zeros((len(box), 5))
@@ -100,10 +102,11 @@ class SSDDataset(Dataset):
             shuffle(self.train_lines)
         lines = self.train_lines
         n = self.train_batches
-        index = index % n
+        temp_index = index % n
         while True:
             img, y = self.get_random_data(lines[index], self.image_size[0:2])
             if len(y)==0:
+                index = (index + 1) % n
                 continue
             boxes = np.array(y[:,:4],dtype=np.float32)
             boxes[:,0] = boxes[:,0]/self.image_size[1]
@@ -112,9 +115,9 @@ class SSDDataset(Dataset):
             boxes[:,3] = boxes[:,3]/self.image_size[0]
             boxes = np.maximum(np.minimum(boxes,1),0)
             if ((boxes[:,3]-boxes[:,1])<=0).any() and ((boxes[:,2]-boxes[:,0])<=0).any():
+                index = (index + 1) % n
                 continue
             y = np.concatenate([boxes,y[:,-1:]],axis=-1)
-            index = (index + 1) % n
             break
             
         img = np.array(img, dtype=np.float32)
